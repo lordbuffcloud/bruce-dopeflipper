@@ -1,4 +1,4 @@
-// DopeFlipper for Bruce (T-Embed CC1101)
+// DopeFlipper for Bruce (T-Embed CC1101) v1.0.0
 // CK42X DopeWars port - sync stats.ck42x to ck42x.com/dopeflipper (manual paste / WebUI)
 // Controls: encoder rotate = PREV/NEXT, encoder press = SEL, side button = ESC
 
@@ -2391,7 +2391,7 @@ if (loadRun() && run.day > 0) {
     var cont = pickMenu('Saved run found', contItems);
     if (cont === 1) {
         deleteSave();
-        if (!titleScreen()) {} else newGame();
+        if (titleScreen()) newGame();
     } else if (cont === 2) {
         statsScreen();
         hubLoop();

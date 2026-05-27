@@ -1,5 +1,10 @@
+"""Regenerate Bruce App Store logo.png (128x128). Run from repo root."""
+
+from pathlib import Path
+
 from PIL import Image, ImageDraw, ImageFont
 
+ROOT = Path(__file__).resolve().parents[1]
 size = 128
 img = Image.new("RGBA", (size, size), (5, 10, 10, 255))
 draw = ImageDraw.Draw(img)
@@ -39,5 +44,6 @@ except OSError:
     font = ImageFont.load_default()
 
 draw.text((78, 34), "DF", fill=white, font=font)
-img.save("logo.png")
-print("wrote logo.png", img.size)
+out = ROOT / "logo.png"
+img.save(out)
+print("wrote", out, img.size)
