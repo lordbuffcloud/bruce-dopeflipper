@@ -26,12 +26,12 @@ Buy low, sell high, dodge cops, and survive 30 days across NYC boroughs. Finishe
 | Encoder press | Confirm (SEL) |
 | Side button | Back / cancel (ESC) |
 
-On the title screen, **NEXT** toggles in-game sound; **PREV** opens all-time stats.
+On the title screen, **NEXT** toggles in-game sound; **PREV** opens **Stats** or **About / Sync**.
 
 ## Gameplay
 
-- Start with **$2,000** cash, **$5,500** debt, **30** days, and **100** coat slots.
-- Hub actions: **BUY**, **SELL**, **PRICES**, **TRAVEL**, **BANK**, **STATUS**, **NEW RUN**.
+- Start with **$1,500** cash, **$6,500** debt, **30** days, and **100** coat slots.
+- Hub actions: **BUY**, **SELL**, **PRICES**, **TRAVEL**, **BANK**, **STATUS**, **HELP**, **NEW RUN**.
 - Eight products across ten boroughs; prices shift with travel, market events, and location bias.
 - **Bank** cash to protect it from street events; repay the loan shark before time runs out.
 - **Heat** rises on big deals and cop encounters; travel and running from cops cool it down.
