@@ -1,4 +1,4 @@
-// DopeFlipper for Bruce (T-Embed CC1101) v1.0.0
+// DopeFlipper for Bruce (T-Embed CC1101) v1.0.3
 // CK42X DopeWars port - sync stats.ck42x to ck42x.com/dopeflipper (manual paste / WebUI)
 // Controls: encoder rotate = PREV/NEXT, encoder press = SEL, side button = ESC
 
@@ -76,7 +76,7 @@ var LOCS = [
     { name: 'Queens', flavor: 'Diverse. Unpredictable.', bias: [100, 100, 100, 100, 110, 100, 100, 100] },
     { name: 'Staten', flavor: 'Quiet borough. Good connects.', bias: [110, 110, 120, 110, 110, 80, 85, 80] },
     { name: 'Harlem', flavor: 'Legendary streets. OGs move different.', bias: [60, 70, 80, 90, 80, 130, 120, 140] },
-    { name: 'Coney', flavor: 'Boardwalk noise and fast flips.', bias: [90, 120, 130, 150, 110, 105, 95, 90] },
+    { name: 'Coney', flavor: 'Boardwalk. Fast flips.', bias: [90, 120, 130, 150, 110, 105, 95, 90] },
     { name: 'Jersey', flavor: 'Tunnel tax. Weird supply.', bias: [130, 95, 85, 100, 120, 115, 120, 110] },
     { name: 'Newark', flavor: 'Hot corners. Heavy pressure.', bias: [75, 85, 100, 90, 95, 125, 135, 130] },
     { name: 'Yonkers', flavor: 'Quiet routes. Thin inventory.', bias: [115, 105, 95, 85, 100, 90, 95, 125] }
@@ -144,8 +144,7 @@ function toInt(v, fallback) {
 }
 
 function invQty(i) {
-    syncInvData();
-    return toInt(run.inventory[i], 0);
+    return toInt(run.inventory && run.inventory[i], 0);
 }
 
 function setInvQty(i, n) {
@@ -444,11 +443,6 @@ function exportStatsProfile(finished) {
     }
 }
 
-function autosyncStats(finished) {
-    if (run.day === 0 && !finished) return;
-    exportStatsProfile(!!finished);
-}
-
 function saveStats() {
     try {
         storage.write(STATS_PATH, JSON.stringify(stats), 'write');
@@ -475,12 +469,12 @@ function loadStats() {
     } catch (e2) {}
 }
 
-function saveRun() {
+function saveRun(exportProfile) {
     try {
         ensureRunArrays();
         storage.write(SAVE_PATH, serializeRun(), 'write');
     } catch (e3) {}
-    autosyncStats(false);
+    if (exportProfile && run.day > 0) exportStatsProfile(false);
 }
 
 function loadRun() {
@@ -805,6 +799,7 @@ function updateStatsEnd(net, profit) {
 
 var soundOn = true;
 var MIN_TONE_MS = 90;
+var MENU_TONE_MS = 45;
 
 function tone(freq, ms) {
     if (!soundOn) return;
@@ -824,9 +819,9 @@ function sfx(freq, ms, gap) {
     if (gap) delay(gap);
 }
 
-function sfxMenu() { sfx(520, 90); }
-function sfxSelect() { sfx(760, 100); }
-function sfxBack() { sfx(300, 100); }
+function sfxMenu() { sfx(520, MENU_TONE_MS); }
+function sfxSelect() { sfx(760, 80); }
+function sfxBack() { sfx(300, MENU_TONE_MS); }
 function sfxEmpty() { sfx(220, 120); }
 function sfxBuy() { sfx(620, 100); sfx(880, 120, 30); }
 function sfxSell() { sfx(880, 100); sfx(1175, 120, 30); }
@@ -835,7 +830,7 @@ function sfxGood() { sfx(880, 100); sfx(1175, 120, 30); }
 function sfxTravel() { sfx(440, 100); sfx(554, 120, 30); }
 function sfxCop() { sfx(740, 100); sfx(440, 120, 30); }
 function sfxHit() { sfx(160, 140); }
-function sfxMove() { sfx(610, 80); }
+function sfxMove() { sfx(610, MENU_TONE_MS); }
 function sfxFightHit() { sfx(920, 80); }
 function sfxRunWhoosh() { sfx(320, 80); }
 function sfxWin() { sfx(988, 120); sfx(1175, 140, 40); sfx(1319, 160, 40); }
@@ -853,7 +848,7 @@ function sfxTest() {
 
 function ledFlash(r, g, b, ms) {
     ledPulse(r, g, b, false);
-    delay(ms || 80);
+    delay(ms && ms < 40 ? ms : 35);
     ledOff();
 }
 
@@ -997,24 +992,29 @@ function drawHubBanner() {
     var theme = LOC_THEMES[run.location] || LOC_THEMES[0];
     var tip = hubBannerLine();
     var tipCol = (run.day > 0 && run.day <= 5) ? BAD : ((tip.indexOf('HOT') >= 0 || tip.indexOf('cheap') >= 0) ? GOOD : DIM);
-    display.drawFillRect(0, MENU_TOP, W, HUB_BANNER_H, BG);
-    drawSkyline(MENU_TOP + HUB_BANNER_H, theme, run.day * 3);
+    var sky = theme.sky;
+    display.drawFillRect(0, MENU_TOP, W, HUB_BANNER_H, sky);
+    drawSkyline(MENU_TOP + HUB_BANNER_H, theme, run.day * 3, false);
     drawBoroughBadge(run.location, 8, MENU_TOP + 2, false);
     display.setTextSize(1);
-    display.setTextColor(theme.band, BG);
-    display.drawString(truncate(LOCS[run.location].flavor, 18), 30, MENU_TOP + 2);
+    display.setTextColor(theme.band, sky);
+    display.drawString(truncate(LOCS[run.location].flavor, 15), 30, MENU_TOP + 2);
     display.setTextAlign('right', 'top');
-    display.setTextColor(run.day <= 5 ? BAD : FG, BG);
+    display.setTextColor(run.day <= 5 ? BAD : FG, sky);
     display.drawString('D' + run.day + '/30', W - 4, MENU_TOP + 2);
     display.setTextAlign('left', 'top');
-    drawBar(30, MENU_TOP + 14, W - 38, 4, run.day, 30, run.day <= 5 ? BAD : ACCENT, DIM);
-    drawBar(30, MENU_TOP + 22, W - 38, 4, coatUsed(), run.max_coat, CYAN, DIM);
-    display.setTextColor(tipCol, BG);
-    display.drawString(truncate(tip, 22), 30, MENU_TOP + 28);
+    drawBar(30, MENU_TOP + 14, W - 38, 4, run.day, 30, run.day <= 5 ? BAD : ACCENT, display.color(30, 30, 40));
+    drawBar(30, MENU_TOP + 22, W - 38, 4, coatUsed(), run.max_coat, CYAN, display.color(30, 30, 40));
+    display.setTextColor(tipCol, sky);
+    display.drawString(truncate(tip, 20), 30, MENU_TOP + 28);
     if (run.coat_offer) {
         display.setTextAlign('right', 'top');
-        display.setTextColor(GOOD, BG);
+        display.setTextColor(GOOD, sky);
         display.drawString('COAT', W - 4, MENU_TOP + 28);
+    } else if (run.heat >= 50) {
+        display.setTextAlign('right', 'top');
+        display.setTextColor(run.heat >= 75 ? BAD : ACCENT, sky);
+        display.drawString('H' + run.heat, W - 4, MENU_TOP + 28);
     }
     display.setTextAlign('left', 'top');
 }
@@ -1023,35 +1023,39 @@ function marketBoardScreen() {
     var page = 0;
     var pages = 2;
     var start, i, d, y, hint, bb, bs;
+    var dirty = true;
     while (true) {
-        display.fill(BG);
-        drawHeader('Prices', true);
-        display.setTextSize(1);
-        display.setTextColor(DIM, BG);
-        display.drawString('Drug  $$$  Inv Tip', 6, MENU_TOP + 2);
-        start = page * 4;
-        y = MENU_TOP + 14;
-        bb = bestBuyDrug();
-        bs = bestSellDrug();
-        for (i = 0; i < 4; i++) {
-            d = start + i;
-            if (d >= 8) break;
-            hint = drugDealHint(d);
-            if (d === bb || d === bs) display.drawFillRect(4, y - 1, W - 8, 11, HI_BG);
-            display.setTextColor(FG, d === bb || d === bs ? HI_BG : BG);
-            display.drawString(truncate(DRUGS[d].name, 6), 6, y);
-            display.drawString(money(run.prices[d]) + priceTrend(d), 46, y);
-            display.drawString('' + invQty(d), 108, y);
-            if (hint) {
-                display.setTextColor(hint === 'CHEAP' ? GOOD : BAD, d === bb || d === bs ? HI_BG : BG);
-                display.drawString(hint, 128, y);
+        if (dirty) {
+            display.fill(BG);
+            drawHeader(LOCS[run.location].name, true);
+            display.setTextSize(1);
+            display.setTextColor(DIM, BG);
+            display.drawString('Drug  $$$  Inv Tip', 6, MENU_TOP + 2);
+            start = page * 4;
+            y = MENU_TOP + 14;
+            bb = bestBuyDrug();
+            bs = bestSellDrug();
+            for (i = 0; i < 4; i++) {
+                d = start + i;
+                if (d >= 8) break;
+                hint = drugDealHint(d);
+                if (d === bb || d === bs) display.drawFillRect(4, y - 1, W - 8, 11, HI_BG);
+                display.setTextColor(FG, d === bb || d === bs ? HI_BG : BG);
+                display.drawString(truncate(DRUGS[d].name, 6), 6, y);
+                display.drawString(money(run.prices[d]) + priceTrend(d), 46, y);
+                display.drawString('' + invQty(d), 108, y);
+                if (hint) {
+                    display.setTextColor(hint === 'CHEAP' ? GOOD : BAD, d === bb || d === bs ? HI_BG : BG);
+                    display.drawString(hint, 128, y);
+                }
+                y += 12;
             }
-            y += 12;
+            display.setTextColor(DIM, BG);
+            if (bb >= 0) display.drawString('Best buy: ' + DRUGS[bb].name, 6, FOOT_Y - 38);
+            if (bs >= 0) display.drawString('Best sell: ' + DRUGS[bs].name, 6, FOOT_Y - 26);
+            drawFooter('PREV/NEXT ' + (page + 1) + '/2  SEL done');
+            dirty = false;
         }
-        display.setTextColor(DIM, BG);
-        if (bb >= 0) display.drawString('Best buy: ' + DRUGS[bb].name, 6, FOOT_Y - 38);
-        if (bs >= 0) display.drawString('Best sell: ' + DRUGS[bs].name, 6, FOOT_Y - 26);
-        drawFooter('PREV/NEXT ' + (page + 1) + '/2  SEL done');
         if (keyboard.getEscPress()) {
             sfxBack();
             return;
@@ -1062,15 +1066,17 @@ function marketBoardScreen() {
         }
         if (keyboard.getNextPress() && page < pages - 1) {
             page++;
+            dirty = true;
             sfxPage();
-            delay(100);
+            delay(40);
         }
         if (keyboard.getPrevPress() && page > 0) {
             page--;
+            dirty = true;
             sfxPage();
-            delay(100);
+            delay(40);
         }
-        delay(50);
+        delay(25);
     }
 }
 
@@ -1125,27 +1131,32 @@ function splashScreen(title, body, locIdx) {
     var pages = paginateLines(expandBodyLines(body), splashLinesPerPage());
     var page = 0;
     var footer;
+    var dirty = true;
 
     while (true) {
-        display.fill(BG);
-        display.drawFillRect(0, MENU_TOP, W, 22, theme.band);
-        display.setTextSize(1);
-        display.setTextColor(BG, theme.band);
-        display.setTextAlign('center', 'top');
-        display.drawString(truncate(title, 24), CX, MENU_TOP + 6);
-        display.setTextAlign('left', 'top');
-        drawBodyLines(pages[page], SPLASH_BODY_TOP, SPLASH_LINE_H);
-        if (pages.length > 1) {
-            footer = 'PREV/NEXT  ' + (page + 1) + '/' + pages.length + '  SEL ';
-            footer += (page < pages.length - 1) ? 'more' : 'done';
-        } else {
-            footer = 'SEL continue';
+        if (dirty) {
+            display.fill(BG);
+            display.drawFillRect(0, MENU_TOP, W, 22, theme.band);
+            display.setTextSize(1);
+            display.setTextColor(BG, theme.band);
+            display.setTextAlign('center', 'top');
+            display.drawString(truncate(title, 24), CX, MENU_TOP + 6);
+            display.setTextAlign('left', 'top');
+            drawBodyLines(pages[page], SPLASH_BODY_TOP, SPLASH_LINE_H);
+            if (pages.length > 1) {
+                footer = 'PREV/NEXT  ' + (page + 1) + '/' + pages.length + '  SEL ';
+                footer += (page < pages.length - 1) ? 'more' : 'done';
+            } else {
+                footer = 'SEL continue';
+            }
+            drawFooter(footer);
+            dirty = false;
         }
-        drawFooter(footer);
         if (keyboard.getSelPress()) {
             sfxSelect();
             if (page < pages.length - 1) {
                 page++;
+                dirty = true;
                 continue;
             }
             return;
@@ -1156,15 +1167,17 @@ function splashScreen(title, body, locIdx) {
         }
         if (keyboard.getNextPress() && page < pages.length - 1) {
             page++;
+            dirty = true;
             sfxPage();
-            delay(120);
+            delay(35);
         }
         if (keyboard.getPrevPress() && page > 0) {
             page--;
+            dirty = true;
             sfxPage();
-            delay(120);
+            delay(35);
         }
-        delay(50);
+        delay(25);
     }
 }
 
@@ -1193,19 +1206,39 @@ function ledOff() {
     try { led.off(); } catch (eLed2) {}
 }
 
-function drawSkyline(yBase, theme, scroll) {
-    var i, x, h, w;
+function drawSkyline(yBase, theme, scroll, fillBelow) {
+    var i, x, h, w, by, buildTop;
     scroll = scroll || 0;
+    fillBelow = fillBelow !== false;
     display.drawFillRect(0, MENU_TOP, W, yBase - MENU_TOP, theme.sky);
-    display.drawFillRect(0, yBase, W, FOOT_Y - yBase, theme.ground);
+    if (fillBelow) {
+        display.drawFillRect(0, yBase, W, FOOT_Y - yBase, theme.ground);
+    }
+    buildTop = fillBelow ? MENU_TOP : (yBase - 12);
     for (i = 0; i < 7; i++) {
         x = ((i * 26) - (scroll % 26) + W) % W;
         if (x > W - 8) continue;
-        h = 12 + ((i * 17 + scroll) % 28);
-        w = 10 + ((i * 11) % 14);
-        display.drawFillRect(x, yBase - h, w, h, theme.ground);
-        display.drawRect(x, yBase - h, w, h, theme.band);
-        if ((i + scroll) % 3 === 0) display.drawFillRect(x + 2, yBase - h + 4, 3, 3, ACCENT);
+        if (fillBelow) {
+            h = 12 + ((i * 17 + scroll) % 28);
+            w = 10 + ((i * 11) % 14);
+        } else {
+            h = 6 + ((i * 11 + scroll) % 8);
+            w = 8 + ((i * 7) % 8);
+        }
+        by = yBase - h;
+        if (by < buildTop) {
+            h -= (buildTop - by);
+            by = buildTop;
+        }
+        if (h < 3) continue;
+        display.drawFillRect(x, by, w, h, theme.ground);
+        display.drawRect(x, by, w, h, theme.band);
+        if ((i + scroll) % 3 === 0) {
+            display.drawFillRect(x + 2, by + (fillBelow ? 4 : 2), 3, 3, ACCENT);
+        }
+    }
+    if (!fillBelow) {
+        display.drawFillRect(0, yBase - 1, W, 1, theme.band);
     }
 }
 
@@ -1315,7 +1348,7 @@ function travelTransitionAnim(toLoc) {
     display.setTextAlign('left', 'top');
     drawFooter('On the road...');
     sfxTravel();
-    delay(450);
+    delay(280);
 }
 
 function marketSplashScreen(title, body, locIdx) {
@@ -1752,7 +1785,11 @@ function menuScreen(title, items, selected, fullRedraw, hubMode) {
         display.drawString(label, 10, y);
         if (hi) display.drawFillRect(8, y + ROW_H - 3, W - 16, 2, ACCENT);
     }
-    drawFooter('');
+    if (hubMode) {
+        drawFooter((selected + 1) + '/' + items.length + '  PREV/NEXT  SEL');
+    } else {
+        drawFooter('');
+    }
 }
 
 function pickMenu(title, items, hubMode) {
@@ -1767,19 +1804,19 @@ function pickMenu(title, items, hubMode) {
             sel = (sel + 1) % items.length;
             menuScreen(title, items, sel, false, hubMode);
             sfxMenu();
-            delay(120);
+            delay(30);
         }
         if (keyboard.getPrevPress()) {
             sel = sel === 0 ? items.length - 1 : sel - 1;
             menuScreen(title, items, sel, false, hubMode);
             sfxMenu();
-            delay(120);
+            delay(30);
         }
         if (keyboard.getSelPress()) {
             sfxSelect();
             return sel;
         }
-        delay(50);
+        delay(20);
     }
 }
 
@@ -1993,12 +2030,12 @@ function tradeScreen(selling) {
             if (selling) sellPos = (sellPos + 1) % owned.length;
             else drugIdx = (drugIdx + 1) % 8;
             sfxMenu();
-            delay(80);
+            delay(25);
         } else if (keyboard.getPrevPress()) {
             if (selling) sellPos = sellPos === 0 ? owned.length - 1 : sellPos - 1;
             else drugIdx = drugIdx === 0 ? 7 : drugIdx - 1;
             sfxMenu();
-            delay(80);
+            delay(25);
         } else if (keyboard.getSelPress()) {
             if (maxQ <= 0) {
                 sfxEmpty();
@@ -2010,7 +2047,7 @@ function tradeScreen(selling) {
             else doBuy(d, tradeQty);
             return;
         }
-        delay(50);
+        delay(20);
     }
 }
 
@@ -2045,10 +2082,10 @@ function travelScreen() {
     startRound();
     ensureRunArrays();
     if (copCheck()) {
-        saveRun();
+        saveRun(true);
         copScreen();
     } else {
-        saveRun();
+        saveRun(true);
         marketSplashScreen('Arrived: ' + LOCS[run.location].name, run.last_msg, run.location);
     }
 }
@@ -2254,7 +2291,26 @@ function statsScreen() {
     body += 'Rank ' + rankFor(stats.best_net) + '\n';
     body += 'Big deal ' + money(stats.biggest_deal) + '\n';
     body += '\nSound ' + (soundOn ? 'ON' : 'OFF');
+    body += '\nDevice ' + sanitizeDeviceName(stats.device_name);
     splashScreen('All-Time Stats', body, 0);
+}
+
+function aboutScreen() {
+    var body = '';
+    body += 'CK42X DopeFlipper for Bruce.\n';
+    body += 'LilyGO T-Embed / CC1101.\n\n';
+    body += 'Encoder = move selection\n';
+    body += 'Press encoder = confirm\n';
+    body += 'Side button = back\n\n';
+    body += 'Runs autosave to LittleFS.\n';
+    body += 'Profile exports when you\n';
+    body += 'travel and when a run ends.\n\n';
+    body += 'Path:\n/ck42x_dopewars/stats.ck42x\n\n';
+    body += 'Leaderboard:\nck42x.com/dopeflipper\n';
+    body += 'Manual import as TEmbed.\n\n';
+    body += 'Flipper Zero port also on\n';
+    body += 'ck42x.com and GitHub.';
+    splashScreen('About / Sync', body, 0);
 }
 
 function endGame() {
@@ -2292,7 +2348,7 @@ function endGame() {
 }
 
 function hubLoop() {
-    var items = ['BUY', 'SELL', 'PRICES', 'TRAVEL', 'BANK', 'STATUS', 'NEW RUN'];
+    var items = ['BUY', 'SELL', 'PRICES', 'TRAVEL', 'BANK', 'STATUS', 'HELP', 'NEW RUN'];
     ensureRunArrays();
     while (run.day > 0) {
         if (run.coat_offer) items[4] = 'BANK* coat';
@@ -2307,7 +2363,8 @@ function hubLoop() {
         else if (pick === 3) travelScreen();
         else if (pick === 4) bankScreen();
         else if (pick === 5) statusView();
-        else if (pick === 6) {
+        else if (pick === 6) aboutScreen();
+        else if (pick === 7) {
             if (pickMenu('New run?', ['Cancel', 'Reset run']) === 1) {
                 deleteSave();
                 newGame();
@@ -2328,34 +2385,41 @@ function newGame() {
 function titleScreen() {
     var frame = 0;
     var theme = LOC_THEMES[0];
+    var blinkOn = true;
+    display.fill(BG);
+    drawSkyline(MENU_TOP + 90, theme, 0);
+    display.setTextSize(2);
+    display.setTextColor(ACCENT, BG);
+    display.setTextAlign('center', 'top');
+    display.drawString('DopeFlipper', CX, MENU_TOP + 88);
+    display.setTextSize(1);
+    display.setTextColor(CYAN, BG);
+    display.drawString('CK42X x T-Embed', CX, MENU_TOP + 112);
+    display.setTextColor(FG, BG);
+    display.drawString('Device: ' + truncate(sanitizeDeviceName(stats.device_name), 16), CX, MENU_TOP + 126);
+    if (stats.games_played > 0) {
+        display.setTextColor(DIM, BG);
+        display.drawString('Best ' + money(stats.best_net) + '  ' + rankFor(stats.best_net), CX, MENU_TOP + 140);
+    }
+    display.setTextColor(DIM, BG);
+    display.drawString('ck42x.com/dopeflipper', CX, MENU_TOP + 152);
+    display.setTextAlign('left', 'top');
+    drawFooter('PREV info  NEXT sound');
     while (true) {
-        display.fill(BG);
-        drawSkyline(MENU_TOP + 90, theme, Math.floor(frame / 6));
-        display.setTextSize(2);
-        display.setTextColor(ACCENT, BG);
-        display.setTextAlign('center', 'top');
-        display.drawString('DopeFlipper', CX, MENU_TOP + 88);
-        display.setTextSize(1);
-        display.setTextColor(CYAN, BG);
-        display.drawString('CK42X x T-Embed', CX, MENU_TOP + 112);
-        display.setTextColor(FG, BG);
-        display.drawString('Device: ' + truncate(sanitizeDeviceName(stats.device_name), 16), CX, MENU_TOP + 126);
-        if (stats.games_played > 0) {
+        if (frame % 8 === 0) {
+            blinkOn = !blinkOn;
+            display.drawFillRect(0, MENU_TOP + 158, W, 40, BG);
+            display.setTextAlign('center', 'top');
+            display.setTextColor(soundOn ? GOOD : BAD, BG);
+            display.drawString('Game sound: ' + (soundOn ? 'ON' : 'OFF'), CX, MENU_TOP + 164);
             display.setTextColor(DIM, BG);
-            display.drawString('Best ' + money(stats.best_net) + '  ' + rankFor(stats.best_net), CX, MENU_TOP + 140);
+            display.drawString('Bruce sound must be ON', CX, MENU_TOP + 176);
+            if (blinkOn) {
+                display.setTextColor(ACCENT, BG);
+                display.drawString('> SEL start <', CX, MENU_TOP + 190);
+            }
+            display.setTextAlign('left', 'top');
         }
-        display.setTextColor(DIM, BG);
-        display.drawString('ck42x.com/dopeflipper', CX, MENU_TOP + 152);
-        display.setTextColor(soundOn ? GOOD : BAD, BG);
-        display.drawString('Game sound: ' + (soundOn ? 'ON' : 'OFF'), CX, MENU_TOP + 164);
-        display.setTextColor(DIM, BG);
-        display.drawString('Bruce sound must be ON', CX, MENU_TOP + 176);
-        if ((frame % 20) < 10) {
-            display.setTextColor(ACCENT, BG);
-            display.drawString('> SEL start <', CX, MENU_TOP + 190);
-        }
-        display.setTextAlign('left', 'top');
-        drawFooter('PREV stats  NEXT test');
         if (keyboard.getEscPress()) {
             ledOff();
             return false;
@@ -2367,17 +2431,19 @@ function titleScreen() {
         }
         if (keyboard.getPrevPress()) {
             sfxMenu();
-            statsScreen();
-            delay(120);
+            var infoPick = pickMenu('Info', ['Stats', 'About / Sync']);
+            if (infoPick === 0) statsScreen();
+            else if (infoPick === 1) aboutScreen();
+            delay(40);
         }
         if (keyboard.getNextPress()) {
             soundOn = !soundOn;
             if (soundOn) sfxTest();
-            else tone(220, 100);
-            delay(120);
+            else tone(220, MENU_TONE_MS);
+            delay(40);
         }
         frame++;
-        delay(80);
+        delay(35);
     }
 }
 
@@ -2387,13 +2453,16 @@ loadStats();
 
 if (loadRun() && run.day > 0) {
     var netPreview = runNet(true);
-    var contItems = ['Continue D' + run.day + ' ' + money(netPreview), 'New run', 'Stats'];
+    var contItems = ['Continue D' + run.day + ' ' + money(netPreview), 'New run', 'Stats', 'About'];
     var cont = pickMenu('Saved run found', contItems);
     if (cont === 1) {
         deleteSave();
         if (titleScreen()) newGame();
     } else if (cont === 2) {
         statsScreen();
+        hubLoop();
+    } else if (cont === 3) {
+        aboutScreen();
         hubLoop();
     } else if (cont === 0) {
         hubLoop();
